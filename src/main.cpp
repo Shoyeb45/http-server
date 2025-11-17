@@ -7,6 +7,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <bits/stdc++.h>
+
+
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
@@ -55,7 +58,23 @@ int main(int argc, char **argv) {
   
   int client_socket = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
   std::cout << "Client connected\n";
-  send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
+  std::vector<char> buf(5000);
+  
+  int bytes = recv(client_socket, buf.data(), buf.size(), 0);
+  
+  std::string url = "";
+  for (int i = 4; i < 5000; i++) {
+    if (buf[i] == ' ') {
+      break;
+    }
+    url += buf[i];
+  }
+
+  if (url == "/") {
+    send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
+  } else {
+    send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
+  }
   close(server_fd);
 
   return 0;
