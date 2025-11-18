@@ -79,13 +79,13 @@ int main(int argc, char **argv) {
     response += std::to_string(temp.size());
     response += "\r\n\r\n" + temp;
     send(client_socket, response.c_str(), response.size() + 1, 0);
+  }
+  
+  if (url == "/") {
+    send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
   } else {
     send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
   }
-  // if (url == "/") {
-  //   send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
-  // } else {
-  // }
 
   close(server_fd);
 
