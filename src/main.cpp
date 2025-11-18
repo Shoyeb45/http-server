@@ -8,26 +8,64 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <vector>
+#include <thread>
 
-std::vector<std::string> split_with_crlf(std::vector<char> &buf)
+std::thread connections[100];
+
+void accept_connection(int client_socket)
 {
-  std::vector<std::string> ans;
-  std::string temp = "";
-  for (int i = 0; i < buf.size(); i++)
+  std::vector<char> buf(5000);
+
+  int bytes = recv(client_socket, buf.data(), buf.size(), 0);
+
+  std::string url = "";
+  for (int i = 4; i < 5000; i++)
   {
-    if (i + 1 < buf.size())
-    {
-      std::string str_temp = std::to_string(buf[i]) + std::to_string(buf[i + 1]);
-      if (str_temp == "\r\n")
-      {
-        ans.push_back(temp);
-        temp = "";
-      }
-    }
-    temp += buf[i];
+    if (buf[i] == ' ') break;
+    
+    url += buf[i];
   }
-  ans.push_back(temp);
-  return ans;
+
+  if (url.starts_with("/echo/"))
+  {
+    int idx = url.find_last_of('/');
+    std::string temp = url.substr(idx + 1);
+    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
+    response += std::to_string(temp.size());
+    response += "\r\n\r\n" + temp;
+
+    send(client_socket, response.c_str(), response.size() + 1, 0);
+  }
+
+  if (url.starts_with("/user-agent"))
+  {
+    std::string requests = buf.data();
+
+    int idx_of_user = requests.find("User-Agent");
+    int idx = requests.find(":", idx_of_user);
+    std::string str_prm = "";
+
+    for (int i = idx + 2;; i++)
+    {
+      if (requests[i] == '\r' && requests[i + 1] == '\n')
+        break;
+      str_prm += requests[i];
+    }
+
+    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
+    response += std::to_string(str_prm.size());
+    response += "\r\n\r\n" + str_prm;
+
+    send(client_socket, response.c_str(), response.size() + 1, 0);
+  }
+
+  if (url == "/")
+  {
+    send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
+    return;
+  }
+    
+  send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
 }
 
 int main(int argc, char **argv)
@@ -39,8 +77,6 @@ int main(int argc, char **argv)
   // You can use print statements as follows for debugging, they'll be visible when running tests.
   std::cout << "Logs from your program will appear here!\n";
 
-  // Uncomment this block to pass the first stage
-  //
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0)
   {
@@ -76,66 +112,22 @@ int main(int argc, char **argv)
   }
 
   struct sockaddr_in client_addr;
-  int client_addr_len = sizeof(client_addr);
 
-  std::cout << "Waiting for a client to connect...\n";
-
-  int client_socket = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
-  std::cout << "Client connected\n";
-  std::vector<char> buf(5000);
-
-  int bytes = recv(client_socket, buf.data(), buf.size(), 0);
-
-  std::string url = "";
-  for (int i = 4; i < 5000; i++)
+  int i = 0;
+  while (true)
   {
-    if (buf[i] == ' ')
+    std::cout << "Waiting for a client to connect...\n";
+    int client_addr_len = sizeof(client_addr);
+    int client_socket = accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+
+    if (client_socket < 0)
     {
-      break;
+      std::cerr << "Cannot accept connection.\n";
+      exit(1);
     }
-    url += buf[i];
-  }
-
-  if (url.starts_with("/echo/"))
-  {
-    int idx = url.find_last_of('/');
-    std::string temp = url.substr(idx + 1);
-    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
-    response += std::to_string(temp.size());
-    response += "\r\n\r\n" + temp;
-
-    send(client_socket, response.c_str(), response.size() + 1, 0);
-  }
-  
-  if (url.starts_with("/user-agent"))
-  {
-    std::string requests = buf.data();
-    
-    int idx_of_user = requests.find("User-Agent");
-    int idx = requests.find(":", idx_of_user);
-    std::string str_prm = "";
-
-    for (int i = idx + 2;; i++)
-    {
-      if (requests[i] == '\r' && requests[i + 1] == '\n')
-      {
-        break;
-      }
-      str_prm += requests[i];
-    }
-    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
-    response += std::to_string(str_prm.size());
-    response += "\r\n\r\n" + str_prm;
-    send(client_socket, response.c_str(), response.size() + 1, 0);
-  }
-
-  if (url == "/")
-  {
-    send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
-  }
-  else
-  {
-    send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
+    // inet_ntoa gives ip of the client.
+    std::cout << "Client with ip " << inet_ntoa(client_addr.sin_addr) << ":" << ntohs(client_addr.sin_port) << " connected on socket : " << client_socket << "\n";
+    connections[i++] = std::thread(accept_connection, client_socket);
   }
 
   close(server_fd);
