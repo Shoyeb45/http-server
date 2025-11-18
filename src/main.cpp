@@ -7,7 +7,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <bits/stdc++.h>
+# include<vector>
+
 
 
 
@@ -70,11 +71,22 @@ int main(int argc, char **argv) {
     url += buf[i];
   }
 
-  if (url == "/") {
-    send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
+  if (url.starts_with("/echo/")) {
+    int idx = url.find_last_of('/');
+    std::string temp = url.substr(idx + 1);
+    std::cout << temp << "\n";
+    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
+    response += std::to_string(temp.size());
+    response += "\r\n\r\n" + temp;
+    send(client_socket, response.c_str(), response.size() + 1, 0);
   } else {
     send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
   }
+  // if (url == "/") {
+  //   send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
+  // } else {
+  // }
+
   close(server_fd);
 
   return 0;
