@@ -87,7 +87,7 @@ void accept_connection(int client_socket)
       
 
       getline(file, file_content);
-      std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-strean\r\nContent-Length: ";
+      std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ";
       response += std::to_string(file_content.size());
       response += "\r\n\r\n" + file_content;
       
