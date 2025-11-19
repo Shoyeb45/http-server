@@ -16,6 +16,8 @@
 
 std::thread connections[100];
 
+std::string directory_path = "";
+
 void accept_connection(int client_socket)
 {
   std::vector<char> buf(5000);
@@ -73,7 +75,7 @@ void accept_connection(int client_socket)
   {
     int idx = url.find_last_of('/');
     std::string file_name = url.substr(idx + 1);
-    std::string path = "/tmp/" + file_name;
+    std::string path = directory_path + file_name;
 
     struct stat md;
     int is_file_exists = stat(path.c_str(), &md);
@@ -96,8 +98,26 @@ void accept_connection(int client_socket)
   send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
 }
 
+std::string get_directory(char **argv, int argc) {
+  int i = 0;
+  for (; i < argc; i++) {
+    if (argv[i] == "--directory") {
+      break;
+    }
+  }
+
+  std::string directory = "";
+  
+  if (i + 1 < argc) {
+    directory = argv[i + 1];
+  }
+  return directory;
+}
+
 int main(int argc, char **argv)
 {
+  directory_path = get_directory(argv, argc);
+
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
