@@ -100,12 +100,14 @@ void accept_connection(int client_socket)
 
 std::string get_directory(char **argv, int argc) {
   int i = 0;
+ 
   for (; i < argc; i++) {
-    if (argv[i] == "--directory") {
+    std::string temp = argv[i];
+    if (temp == "--directory") {
       break;
     }
   }
-
+  std::cout << i << " " << argv[i] << "\n";
   std::string directory = "";
   
   if (i + 1 < argc) {
