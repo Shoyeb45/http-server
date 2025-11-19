@@ -73,7 +73,7 @@ void accept_connection(int client_socket)
   {
     int idx = url.find_last_of('/');
     std::string file_name = url.substr(idx + 1);
-    std::string path = "/tmp/" + file_name;
+    std::string path = file_name;
 
     struct stat md;
     int is_file_exists = stat(path.c_str(), &md);
