@@ -18,19 +18,46 @@ std::thread connections[100];
 
 std::string directory_path = "";
 
+std::string get_target_url(std::vector<char> &buf, std::string http_method)
+{
+  std::string target_url = "";
+  for (int i = http_method.size() + 1; i < buf.size(); i++)
+  {
+    if (buf[i] == ' ')
+      break;
+    target_url += buf[i];
+  }
+  return target_url;
+}
+
+std::string get_http_method(std::vector<char> &buf)
+{
+  std::string method = "";
+  for (int i = 0; i < buf.size(); i++)
+  {
+    if (buf[i] == ' ')
+      break;
+    method += buf[i];
+  }
+  return method;
+}
+
+std::string get_post_body(std::string &req_str)
+{
+  int idx = req_str.find("\r\n\r\n"); // \r\n\r\n\Hi
+  std::string body = req_str.substr(idx + 4);
+  return body;
+}
+
 void accept_connection(int client_socket)
 {
   std::vector<char> buf(5000);
 
   int bytes = recv(client_socket, buf.data(), buf.size(), 0);
 
-  std::string url = "";
-  for (int i = 4; i < 5000; i++)
-  {
-    if (buf[i] == ' ')
-      break;
-    url += buf[i];
-  }
+  std::string http_method = get_http_method(buf);
+  std::string url = get_target_url(buf, http_method);
+  std::string requests = buf.data();
 
   if (url.starts_with("/echo/"))
   {
@@ -45,7 +72,6 @@ void accept_connection(int client_socket)
 
   if (url.starts_with("/user-agent"))
   {
-    std::string requests = buf.data();
 
     int idx_of_user = requests.find("User-Agent");
     int idx = requests.find(":", idx_of_user);
@@ -64,7 +90,7 @@ void accept_connection(int client_socket)
 
     send(client_socket, response.c_str(), response.size() + 1, 0);
   }
-  
+
   if (url == "/")
   {
     send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
@@ -77,20 +103,29 @@ void accept_connection(int client_socket)
     std::string file_name = url.substr(idx + 1);
     std::string path = directory_path + file_name;
 
-    struct stat md;
+    if (http_method == "POST")
+    {
+      std::ofstream file(path);
+      file << get_post_body(requests);
+      std::string response = "HTTP/1.1 201 Created\r\n\r\n";
+      send(client_socket, response.c_str(), response.size() + 1, 0);
+      return;
+    }
+
+    struct stat md; 
     int is_file_exists = stat(path.c_str(), &md);
+
     std::cout << "File path: " << path << " is file exits: " << is_file_exists << "\n";
     if (is_file_exists == 0)
     {
       std::ifstream file(path);
       std::string file_content;
-      
 
       getline(file, file_content);
       std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ";
       response += std::to_string(file_content.size());
       response += "\r\n\r\n" + file_content;
-      
+
       send(client_socket, response.c_str(), response.size() + 1, 0);
       return;
     }
@@ -98,19 +133,23 @@ void accept_connection(int client_socket)
   send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
 }
 
-std::string get_directory(char **argv, int argc) {
+std::string get_directory(char **argv, int argc)
+{
   int i = 0;
- 
-  for (; i < argc; i++) {
+
+  for (; i < argc; i++)
+  {
     std::string temp = argv[i];
-    if (temp == "--directory") {
+    if (temp == "--directory")
+    {
       break;
     }
   }
   std::cout << i << " " << argv[i] << "\n";
   std::string directory = "";
-  
-  if (i + 1 < argc) {
+
+  if (i + 1 < argc)
+  {
     directory = argv[i + 1];
   }
   return directory;
