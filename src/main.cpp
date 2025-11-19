@@ -79,12 +79,12 @@ void accept_connection(int client_socket)
 
     struct stat md;
     int is_file_exists = stat(path.c_str(), &md);
+    std::cout << "File path: " << path << " is file exits: " << is_file_exists << "\n";
     if (is_file_exists == 0)
     {
       std::ifstream file(path);
       std::string file_content;
-      std::ofstream file_o(path);
-      file_o << "this is correct location";
+      
 
       getline(file, file_content);
       std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-strean\r\nContent-Length: ";
