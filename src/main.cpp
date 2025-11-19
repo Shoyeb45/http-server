@@ -9,6 +9,10 @@
 #include <netdb.h>
 #include <vector>
 #include <thread>
+// For reading file
+#include <fstream>
+// For checking if the file exists or not
+#include <sys/stat.h>
 
 std::thread connections[100];
 
@@ -21,8 +25,8 @@ void accept_connection(int client_socket)
   std::string url = "";
   for (int i = 4; i < 5000; i++)
   {
-    if (buf[i] == ' ') break;
-    
+    if (buf[i] == ' ')
+      break;
     url += buf[i];
   }
 
@@ -58,13 +62,34 @@ void accept_connection(int client_socket)
 
     send(client_socket, response.c_str(), response.size() + 1, 0);
   }
-
+  
   if (url == "/")
   {
     send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
     return;
   }
-    
+
+  if (url.starts_with("/files/"))
+  {
+    int idx = url.find_last_of('/');
+    std::string file_name = url.substr(idx + 1);
+    std::string path = "/tmp/" + file_name;
+
+    struct stat md;
+    int is_file_exists = stat(path.c_str(), &md);
+    if (is_file_exists == 0)
+    {
+      std::ifstream file(path);
+      std::string file_content;
+      getline(file, file_content);
+      std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-strean\r\nContent-Length: ";
+      response += std::to_string(file_content.size());
+      response += "\r\n\r\n" + file_content;
+      
+      send(client_socket, response.c_str(), response.size() + 1, 0);
+      return;
+    }
+  }
   send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
 }
 
