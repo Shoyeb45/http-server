@@ -73,7 +73,7 @@ void accept_connection(int client_socket)
   {
     int idx = url.find_last_of('/');
     std::string file_name = url.substr(idx + 1);
-    std::string path = file_name;
+    std::string path = "/tmp/" + file_name;
 
     struct stat md;
     int is_file_exists = stat(path.c_str(), &md);
@@ -81,6 +81,9 @@ void accept_connection(int client_socket)
     {
       std::ifstream file(path);
       std::string file_content;
+      std::ofstream file_o(path);
+      file_o << "this is correct location";
+
       getline(file, file_content);
       std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-strean\r\nContent-Length: ";
       response += std::to_string(file_content.size());
