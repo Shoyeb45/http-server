@@ -54,15 +54,30 @@ void accept_connection(int client_socket)
   std::vector<char> buf(5000);
 
   int bytes = recv(client_socket, buf.data(), buf.size(), 0);
-
   std::string http_method = get_http_method(buf);
   std::string url = get_target_url(buf, http_method);
   std::string requests = buf.data();
+  int idx_of_encoding = requests.find("Accept-Encoding");
 
   if (url.starts_with("/echo/"))
   {
     int idx = url.find_last_of('/');
     std::string temp = url.substr(idx + 1);
+
+    if (idx_of_encoding != -1)
+    {
+      std::string encoding_type = requests.substr(requests.find(":", idx_of_encoding) + 2, 4);
+      std::cout << encoding_type << "\n";
+      std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain";
+      if (encoding_type == "gzip")
+        response += "\r\nContent-Encoding: gzip";
+
+      response += "\r\nContent-Length: " + std::to_string(temp.size());
+      response += "\r\n\r\n" + temp;
+
+      send(client_socket, response.c_str(), response.size() + 1, 0);
+      return;
+    }
     std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
     response += std::to_string(temp.size());
     response += "\r\n\r\n" + temp;
@@ -112,7 +127,7 @@ void accept_connection(int client_socket)
       return;
     }
 
-    struct stat md; 
+    struct stat md;
     int is_file_exists = stat(path.c_str(), &md);
 
     std::cout << "File path: " << path << " is file exits: " << is_file_exists << "\n";
@@ -145,7 +160,7 @@ std::string get_directory(char **argv, int argc)
       break;
     }
   }
-  std::cout << i << " " << argv[i] << "\n";
+
   std::string directory = "";
 
   if (i + 1 < argc)
