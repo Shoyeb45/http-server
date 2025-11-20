@@ -9,10 +9,44 @@
 #include <netdb.h>
 #include <vector>
 #include <thread>
+#include <set>
 // For reading file
 #include <fstream>
 // For checking if the file exists or not
 #include <sys/stat.h>
+
+// shoyeb###sdfd###ssdfd###hgh
+std::vector<std::string> split_str(std::string src, std::string split_word)
+{
+  std::vector<std::string> answers;
+  int len = (int)split_word.size();
+
+  std::string word_so_far = "";
+
+  for (int i = 0; i < src.size(); i++)
+  {
+    word_so_far += src[i];
+
+    if (i + len - 1 > src.size())
+      continue;
+
+    std::string temp = src.substr(i, len);
+    if (temp == split_word)
+    {
+      if (!word_so_far.empty())
+        word_so_far.pop_back();
+      answers.push_back(word_so_far);
+      word_so_far = "";
+      i = i + len - 1;
+    }
+  }
+
+  if (!word_so_far.empty())
+    answers.push_back(word_so_far);
+  return answers;
+}
+
+const std::set<std::string> supported_compression_techniques = {"gzip"};
 
 std::thread connections[100];
 
@@ -66,11 +100,30 @@ void accept_connection(int client_socket)
 
     if (idx_of_encoding != -1)
     {
-      std::string encoding_type = requests.substr(requests.find(":", idx_of_encoding) + 2, 4);
-      std::cout << encoding_type << "\n";
+      int last_i = requests.find("\r\n", idx_of_encoding + 1);
+      int first_i = requests.find(":", idx_of_encoding) + 2;
+      std::string enc_typs = requests.substr(first_i, last_i - first_i);
+      std::vector<std::string> encoding_types = split_str(enc_typs, ", ");
+
+      std::vector<std::string> valid_encoding;
+      for (auto &encoding : encoding_types)
+      {
+        if (supported_compression_techniques.find(encoding) != supported_compression_techniques.end())
+          valid_encoding.push_back(encoding);
+      }
+
       std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain";
-      if (encoding_type == "gzip")
-        response += "\r\nContent-Encoding: gzip";
+      if (valid_encoding.size() >= 1) 
+      {
+        response += "\r\nContent-Encoding: ";
+        for (int i = 0; i < (int) valid_encoding.size(); i++) {
+          response += valid_encoding[i];
+          if (i < (int) valid_encoding.size() - 1) {
+            response += ", ";
+          }
+        }
+        
+      }
 
       response += "\r\nContent-Length: " + std::to_string(temp.size());
       response += "\r\n\r\n" + temp;
