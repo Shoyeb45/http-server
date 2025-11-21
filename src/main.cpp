@@ -118,124 +118,172 @@ std::string get_post_body(std::string &req_str)
   return body;
 }
 
+
 void accept_connection(int client_socket)
 {
-  std::vector<char> buf(5000);
-
-  int bytes = recv(client_socket, buf.data(), buf.size(), 0);
-  std::string http_method = get_http_method(buf);
-  std::string url = get_target_url(buf, http_method);
-  std::string requests = buf.data();
-  int idx_of_encoding = requests.find("Accept-Encoding");
-
-  if (url.starts_with("/echo/"))
+  while (true)
   {
-    int idx = url.find_last_of('/');
-    std::string temp = url.substr(idx + 1);
+    std::vector<char> buf(5000);
+    std::fill(buf.begin(), buf.end(), 0);
 
-    if (idx_of_encoding != -1)
+    std::cout << "Reading the request data\n";
+    int bytes = recv(client_socket, buf.data(), buf.size(), 0);
+    if (bytes <= 0)
     {
-      int last_i = requests.find("\r\n", idx_of_encoding + 1);
-      int first_i = requests.find(":", idx_of_encoding) + 2;
-      std::string enc_typs = requests.substr(first_i, last_i - first_i);
-      std::vector<std::string> encoding_types = split_str(enc_typs, ", ");
+      close(client_socket);
+      std::cout << "Reading data failed\n";
+      return;
+    }
+    std::cout << "Successfully read the data, request data:\n" << buf.data() << "\n";
+    
+    std::string http_method = get_http_method(buf);
+    std::cout << "HTTP method: " << http_method << "\n";
 
-      std::vector<std::string> valid_encoding;
-      for (auto &encoding : encoding_types)
-      {
-        if (supported_compression_techniques.find(encoding) != supported_compression_techniques.end())
-          valid_encoding.push_back(encoding);
-      }
+    std::string url = get_target_url(buf, http_method);
+    std::cout << "Target URL: " << url << "\n";
 
-      std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain";
-      if (valid_encoding.size() >= 1)
+    std::string requests(buf.data(), bytes);
+    bool should_close =
+        requests.find("Connection: close") != std::string::npos;
+
+    std::cout << "Should close " << should_close << "\n";
+    
+    std::cout << "Requests: " << requests << "\n";
+    int idx_of_encoding = requests.find("Accept-Encoding");
+    std::cout << "Encoding: " << idx_of_encoding << "\n";
+    if (url.starts_with("/echo/"))
+    {
+      std::cout << "Url with echo\n";
+      int idx = url.find_last_of('/');
+      std::string temp = url.substr(idx + 1);
+      std::cout << "URL Param in echo: " << temp << "\n";  
+
+      if (idx_of_encoding != -1)
       {
-        response += "\r\nContent-Encoding: ";
-        for (int i = 0; i < (int)valid_encoding.size(); i++)
+        int last_i = requests.find("\r\n", idx_of_encoding + 1);
+        int first_i = requests.find(":", idx_of_encoding) + 2;
+        std::string enc_typs = requests.substr(first_i, last_i - first_i);
+        std::vector<std::string> encoding_types = split_str(enc_typs, ", ");
+
+        std::vector<std::string> valid_encoding;
+        for (auto &encoding : encoding_types)
         {
-          response += valid_encoding[i];
-          if (i < (int)valid_encoding.size() - 1)
+          if (supported_compression_techniques.find(encoding) != supported_compression_techniques.end())
+            valid_encoding.push_back(encoding);
+        }
+
+        std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain";
+
+        if (valid_encoding.size() >= 1)
+        {
+          response += "\r\nContent-Encoding: ";
+          for (int i = 0; i < (int)valid_encoding.size(); i++)
           {
-            response += ", ";
+            response += valid_encoding[i];
+            if (i < (int)valid_encoding.size() - 1)
+            {
+              response += ", ";
+            }
           }
         }
+
+        std::string compressed_data = encode_using_gzip(temp);
+        response += "\r\nContent-Length: " + std::to_string(compressed_data.size());
+        response += "\r\n\r\n" + compressed_data;
+        
+        std::cout << "Response for echo in encoding::\n" << response << "\n";
+        send(client_socket, response.c_str(), response.size(), 0);
+        continue;
+      }
+      std::string response =
+          "HTTP/1.1 200 OK\r\n"
+          "Connection: keep-alive\r\n"
+          "Content-Type: text/plain\r\nContent-Length: ";
+
+      response += std::to_string(temp.size());
+      response += "\r\n\r\n" + temp;
+
+      std::cout << "Response in echo without encoding: " << response << "\n";
+      send(client_socket, response.c_str(), response.size(), 0);
+      continue;
+    }
+
+    if (url.starts_with("/user-agent"))
+    {
+      std::cout << "URL starting with /user-agent\n";
+
+      int idx_of_user = requests.find("User-Agent");
+      int idx = requests.find(":", idx_of_user);
+
+      std::string str_prm = "";
+
+      for (int i = idx + 2;; i++)
+      {
+        if (requests[i] == '\r' && requests[i + 1] == '\n')
+          break;
+        str_prm += requests[i];
+      }
+      std::cout << "User agent from header: " << str_prm << "\n";
+
+      std::string response =
+          "HTTP/1.1 200 OK\r\n"
+          "Connection: keep-alive\r\n"
+          "Content-Type: text/plain\r\nContent-Length: ";
+      response += std::to_string(str_prm.size());
+      response += "\r\n\r\n" + str_prm;
+      std::cout << "Response for user-agent:\n" << response << "\n";
+
+      send(client_socket, response.c_str(), response.size(), 0);
+      continue;
+    }
+
+    if (url == "/")
+    {
+      send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
+      continue;
+    }
+
+    if (url.starts_with("/files/"))
+    {
+      int idx = url.find_last_of('/');
+      std::string file_name = url.substr(idx + 1);
+      std::string path = directory_path + file_name;
+
+      if (http_method == "POST")
+      {
+        std::ofstream file(path);
+        file << get_post_body(requests);
+        std::string response = "HTTP/1.1 201 Created\r\n\r\n";
+        send(client_socket, response.c_str(), response.size(), 0);
+        continue;
       }
 
-      std::string compressed_data = encode_using_gzip(temp);
-      response += "\r\nContent-Length: " + std::to_string(compressed_data.size());
-      response += "\r\n\r\n" + compressed_data;
+      struct stat md;
+      int is_file_exists = stat(path.c_str(), &md);
 
-      send(client_socket, response.c_str(), response.size() + 1, 0);
-      return;
-    }
-    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
-    response += std::to_string(temp.size());
-    response += "\r\n\r\n" + temp;
+      std::cout << "File path: " << path << " is file exits: " << is_file_exists << "\n";
+      if (is_file_exists == 0)
+      {
+        std::ifstream file(path);
+        std::string file_content;
 
-    send(client_socket, response.c_str(), response.size() + 1, 0);
-  }
+        getline(file, file_content);
+        std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ";
+        response += std::to_string(file_content.size());
+        response += "\r\n\r\n" + file_content;
 
-  if (url.starts_with("/user-agent"))
-  {
-
-    int idx_of_user = requests.find("User-Agent");
-    int idx = requests.find(":", idx_of_user);
-    std::string str_prm = "";
-
-    for (int i = idx + 2;; i++)
-    {
-      if (requests[i] == '\r' && requests[i + 1] == '\n')
-        break;
-      str_prm += requests[i];
+        send(client_socket, response.c_str(), response.size(), 0);
+        continue;
+      }
     }
 
-    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
-    response += std::to_string(str_prm.size());
-    response += "\r\n\r\n" + str_prm;
-
-    send(client_socket, response.c_str(), response.size() + 1, 0);
-  }
-
-  if (url == "/")
-  {
-    send(client_socket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
-    return;
-  }
-
-  if (url.starts_with("/files/"))
-  {
-    int idx = url.find_last_of('/');
-    std::string file_name = url.substr(idx + 1);
-    std::string path = directory_path + file_name;
-
-    if (http_method == "POST")
+    send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
+    if (should_close)
     {
-      std::ofstream file(path);
-      file << get_post_body(requests);
-      std::string response = "HTTP/1.1 201 Created\r\n\r\n";
-      send(client_socket, response.c_str(), response.size() + 1, 0);
-      return;
-    }
-
-    struct stat md;
-    int is_file_exists = stat(path.c_str(), &md);
-
-    std::cout << "File path: " << path << " is file exits: " << is_file_exists << "\n";
-    if (is_file_exists == 0)
-    {
-      std::ifstream file(path);
-      std::string file_content;
-
-      getline(file, file_content);
-      std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ";
-      response += std::to_string(file_content.size());
-      response += "\r\n\r\n" + file_content;
-
-      send(client_socket, response.c_str(), response.size() + 1, 0);
+      close(client_socket);
       return;
     }
   }
-  send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", 27, 0);
 }
 
 std::string get_directory(char **argv, int argc)
