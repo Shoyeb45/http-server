@@ -324,7 +324,7 @@ int main(int argc, char **argv)
     connections[i++] = std::thread(accept_connection, client_socket);
   }
 
-  close(server_fd);
+  // close(server_fd);
 
   return 0;
 }
