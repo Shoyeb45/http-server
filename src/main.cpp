@@ -34,7 +34,7 @@ void add_crlf(std::string &response_body) {
 void add_status_code(int status_code, std::string &response_body) {
     switch (status_code) {
     case OK:
-        response_body.append("200 Ok");
+        response_body.append("200 OK");
         break;
 
     case NOT_FOUND:
@@ -57,6 +57,7 @@ void add_encodings(std::string &response_body, std::vector<std::string> &encodin
     if (encodings.size() < 1)
         return;
     response_body.append("Content-Encoding: ");
+
     for (int i = 0; i < (int)encodings.size(); i++) {
         response_body.append(encodings[i]);
         if (i < (int)encodings.size() - 1) {
@@ -70,6 +71,7 @@ void add_content(std::string &response_body, std::string content) {
     int sz = content.size();
     response_body.append("Content-Length: ");
     response_body.append(std::to_string(sz));
+
     add_crlf(response_body);
     add_crlf(response_body);
     response_body.append(content);
@@ -142,7 +144,7 @@ void accept_connection(int client_socket) {
 
                 // std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain";
                 add_content_type(response_body, "text/plain");
-                add_encodings(response_body, encoding_types);
+                add_encodings(response_body, valid_encodings);
 
                 std::string compressed_data = encode_using_gzip(temp);
                 add_content(response_body, compressed_data);
@@ -174,13 +176,12 @@ void accept_connection(int client_socket) {
             add_connection(response_body, should_close);
             add_content_type(response_body, "text/plain");
             add_content(response_body, str_prm);
-
-            continue;
         }
 
         else if (url == "/") {
             add_status_code(OK, response_body);
             add_connection(response_body, should_close);
+            add_crlf(response_body);
         }
 
         else if (url.starts_with("/files/")) {
@@ -193,6 +194,7 @@ void accept_connection(int client_socket) {
                 file << get_request_body(requests);
                 add_status_code(CREATED, response_body);
                 add_connection(response_body, should_close);
+                add_crlf(response_body);
             } else {
 
                 struct stat md;
@@ -210,12 +212,17 @@ void accept_connection(int client_socket) {
                     add_connection(response_body, should_close);
                     add_content_type(response_body, "application/octet-stream");
                     add_content(response_body, file_content);
+                } else {
+                    add_status_code(NOT_FOUND, response_body);
+                    add_connection(response_body, should_close);
+                    add_crlf(response_body);
                 }
             }
 
         } else {
             add_status_code(NOT_FOUND, response_body);
             add_connection(response_body, should_close);
+            add_crlf(response_body);
         }
 
         std::cout << "Response body: " << response_body << "\n";
