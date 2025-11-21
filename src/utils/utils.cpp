@@ -104,3 +104,25 @@ std::string get_request_body(std::string &req_str) {
     std::string body = req_str.substr(idx + 4);
     return body;
 }
+
+/// @brief Get Directory from args
+/// @param argv 
+/// @param argc 
+/// @return 
+std::string get_directory(char **argv, int argc) {
+    int i = 0;
+
+    for (; i < argc; i++) {
+        std::string temp = argv[i];
+        if (temp == "--directory") {
+            break;
+        }
+    }
+
+    std::string directory = "";
+
+    if (i + 1 < argc) {
+        directory = argv[i + 1];
+    }
+    return directory;
+}
