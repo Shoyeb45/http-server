@@ -1,36 +1,48 @@
-#include<bits/stdc++.h>
+#include <bits/stdc++.h>
+#include <zlib.h>
+
 using namespace std;
 
-std::vector<std::string> split_str(std::string src, std::string split_word) {
-  std::vector<std::string> answers;
-  int len = (int) split_word.size();
+std::string encode_using_gzip(std::string &data)
+{
+    z_stream zs{};
+    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+        throw runtime_error("deflateInit2 failed");
 
-  std::string word_so_far = "";
+    zs.next_in = (Bytef*)data.data();
+    zs.avail_in = data.size();
 
-  for (int i = 0; i < src.size(); i++) {
-    word_so_far += src[i];
+    std::string out_buffer;
+    out_buffer.resize(128);
 
-    if (i + len - 1 > src.size()) continue;
+    std::string result;
 
-    std::string temp = src.substr(i, len);
-    if (temp == split_word) {
-      if (!word_so_far.empty()) word_so_far.pop_back();
-      answers.push_back(word_so_far);
-      word_so_far = "";
-      i = i + len - 1;
-    }
-  }
+    int ret;
+    do {
+        zs.next_out = (Bytef*)out_buffer.data();
+        zs.avail_out = out_buffer.size();
 
-  if (!word_so_far.empty()) answers.push_back(word_so_far);
-  return answers;
+        ret = deflate(&zs, Z_FINISH);
+
+        result.append(out_buffer.data(), out_buffer.size() - zs.avail_out);
+
+    } while (ret == Z_OK);
+
+    deflateEnd(&zs);
+
+    if (ret != Z_STREAM_END)
+        throw runtime_error("deflate failed");
+
+    return result;   // compressed gzip data (binary)
 }
 
-int main() {
-    string d = "hi, df, d, f, d, f";
-    vector<string> f = split_str(d, ", ");
+int main()
+{
+    string s = "abc";
+    string t = encode_using_gzip(s);
+    // Print hex so you can SEE it
+    for (unsigned char c : t) printf("%02X ", c);
+    printf("\n");
 
-    for (auto x: f) {
-        cout << x << " ";
-    }
-    cout << "\n";
+    return 0;
 }

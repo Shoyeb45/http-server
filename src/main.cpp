@@ -10,12 +10,47 @@
 #include <vector>
 #include <thread>
 #include <set>
+#include <zlib.h>
+
 // For reading file
 #include <fstream>
 // For checking if the file exists or not
 #include <sys/stat.h>
 
-// shoyeb###sdfd###ssdfd###hgh
+std::string encode_using_gzip(std::string &data)
+{
+  z_stream zs{};
+  if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+    throw std::runtime_error("deflateInit2 failed");
+
+  zs.next_in = (Bytef *)data.data();
+  zs.avail_in = data.size();
+
+  std::string out_buffer;
+  out_buffer.resize(128);
+
+  std::string result;
+
+  int ret;
+  do
+  {
+    zs.next_out = (Bytef *)out_buffer.data();
+    zs.avail_out = out_buffer.size();
+
+    ret = deflate(&zs, Z_FINISH);
+
+    result.append(out_buffer.data(), out_buffer.size() - zs.avail_out);
+
+  } while (ret == Z_OK);
+
+  deflateEnd(&zs);
+
+  if (ret != Z_STREAM_END)
+    throw std::runtime_error("deflate failed");
+
+  return result; // compressed gzip data (binary)
+}
+
 std::vector<std::string> split_str(std::string src, std::string split_word)
 {
   std::vector<std::string> answers;
@@ -113,20 +148,22 @@ void accept_connection(int client_socket)
       }
 
       std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain";
-      if (valid_encoding.size() >= 1) 
+      if (valid_encoding.size() >= 1)
       {
         response += "\r\nContent-Encoding: ";
-        for (int i = 0; i < (int) valid_encoding.size(); i++) {
+        for (int i = 0; i < (int)valid_encoding.size(); i++)
+        {
           response += valid_encoding[i];
-          if (i < (int) valid_encoding.size() - 1) {
+          if (i < (int)valid_encoding.size() - 1)
+          {
             response += ", ";
           }
         }
-        
       }
 
-      response += "\r\nContent-Length: " + std::to_string(temp.size());
-      response += "\r\n\r\n" + temp;
+      std::string compressed_data = encode_using_gzip(temp);
+      response += "\r\nContent-Length: " + std::to_string(compressed_data.size());
+      response += "\r\n\r\n" + compressed_data;
 
       send(client_socket, response.c_str(), response.size() + 1, 0);
       return;
