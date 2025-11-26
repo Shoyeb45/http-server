@@ -1,37 +1,25 @@
-[![progress-banner](https://backend.codecrafters.io/progress/http-server/933420a1-e975-42e9-8890-f0af62603350)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# HTTP Server
 
-This is a starting point for C++ solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
+- HTTP protocol is one of the most important techonology which allows the communication over network.
+- This was one of the challenge of codecrafters and I really enjoyed building it and I will make it like a mini express soon.
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+# Run the server 
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
 
-# Passing the first stage
-
-The entry point for your HTTP server implementation is in `src/main.cpp`. Study
-and uncomment the relevant code, and push your changes to pass the first stage:
-
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+1. Ensure you have `cmake` installed locally, also make sure to configure `vcpkg`
+1. Run `./your_program.sh` to run your program, which is implemented in
+   `src/main.cpp`.(first make it executable`chmod +x your_program.sh`)
+2. Use curl to make request.
+```bash
+curl -i http://localhost:4221/
 ```
 
-Time to move on to the next stage!
 
-# Stage 2 & beyond
+# Current features
 
-Note: This section is for stages 2 and beyond.
+1. Concurrent Connection
+2. Persisten Connection, if sent `Connection: close`, then it will shut the connection.
+3. Allowed compression using `gzip` algorithm(implemented using `zlib`)
+4. Route you can hit and get desired output:
 
-1. Ensure you have `cmake` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.cpp`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
