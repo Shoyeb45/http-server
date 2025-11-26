@@ -142,7 +142,6 @@ void accept_connection(int client_socket) {
                         valid_encodings.push_back(encoding);
                 }
 
-                // std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain";
                 add_content_type(response_body, "text/plain");
                 add_encodings(response_body, valid_encodings);
 
